@@ -15,7 +15,7 @@ public class BinanceTradingService
     private readonly BinanceRestClient _restClient;
     private readonly BinanceSocketClient _socketClient;
     private readonly SidewaysDetectionService _sidewaysDetection;
-    private readonly OrderManagementService _orderManagement;
+    private readonly IOrderManagementService _orderManagement;
     private readonly ILogger<BinanceTradingService> _logger;
     private readonly TradingConfig _tradingConfig;
 
@@ -23,7 +23,7 @@ public class BinanceTradingService
         BinanceConfig binanceConfig,
         TradingConfig tradingConfig,
         SidewaysDetectionService sidewaysDetection,
-        OrderManagementService orderManagement,
+        IOrderManagementService orderManagement,
         ILogger<BinanceTradingService> logger)
     {
         _tradingConfig = tradingConfig;

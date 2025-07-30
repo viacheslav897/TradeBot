@@ -1,4 +1,6 @@
-﻿namespace TradeBot.Models;
+﻿using Binance.Net.Enums;
+
+namespace TradeBot.Models;
 
 public class Position
 {
@@ -9,7 +11,7 @@ public class Position
     public DateTime EntryTime { get; set; }
     public decimal? TakeProfitPrice { get; set; }
     public decimal? StopLossPrice { get; set; }
-    public long? TakeProfitOrderId { get; set; }
+    public long? TakeProfitOrderId { get; set; } 
     public long? StopLossOrderId { get; set; }
     public bool IsActive { get; set; } = true;
 }

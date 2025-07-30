@@ -1,15 +1,16 @@
-﻿using Binance.Net.Clients;
+﻿using Binance.Net;
+using Binance.Net.Clients;
 using Binance.Net.Enums;
+using Binance.Net.Objects;
+using Binance.Net.Objects.Models.Spot;
 using CryptoExchange.Net.Authentication;
 using Microsoft.Extensions.Logging;
 using TradeBot.Models;
 using TradeBot.Trader;
-using OrderSide = TradeBot.Models.OrderSide;
-using OrderStatus = TradeBot.Models.OrderStatus;
 
 namespace TradeBot.Services;
 
-public class OrderManagementService
+public class OrderManagementService : IOrderManagementService
 {
     private readonly BinanceRestClient _restClient;
     private readonly ILogger<OrderManagementService> _logger;
@@ -26,14 +27,13 @@ public class OrderManagementService
         _logger = logger;
         _activePositions = new Dictionary<string, Position>();
         _activeOrders = new Dictionary<long, OrderInfo>();
-
+        
         // Создаем BinanceRestClient для OrderManagementService
         _restClient = new BinanceRestClient(options =>
         {
-            options.ApiCredentials =
-                new ApiCredentials(binanceConfig.ApiKey, binanceConfig.ApiSecret);
+            options.ApiCredentials = new ApiCredentials(binanceConfig.ApiKey, binanceConfig.ApiSecret);
             if (binanceConfig.IsTestNet)
-                options.Environment = Binance.Net.Enums.BinanceEnvironment.Testnet;
+                options.Environment = BinanceEnvironment.Testnet;
         });
     }
 
@@ -43,15 +43,11 @@ public class OrderManagementService
         {
             _logger.LogInformation($"Размещение рыночного ордера: {side} {quantity} {symbol}");
 
-            var orderRequest = new BinanceOrderRequest
-            {
-                Symbol = symbol,
-                Side = side == OrderSide.Buy ? SpotOrderSide.Buy : SpotOrderSide.Sell,
-                Type = SpotOrderType.Market,
-                Quantity = quantity
-            };
-
-            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(orderRequest);
+            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(
+                symbol: symbol,
+                side: side,
+                type: SpotOrderType.Market,
+                quantity: quantity);
 
             if (result.Success)
             {
@@ -59,12 +55,12 @@ public class OrderManagementService
                 {
                     OrderId = result.Data.Id,
                     Symbol = result.Data.Symbol,
-                    Side = result.Data.Side == SpotOrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
+                    Side = result.Data.Side,
                     Type = OrderType.Market,
                     Quantity = result.Data.Quantity,
                     Price = result.Data.Price,
                     CreateTime = result.Data.CreateTime,
-                    Status = MapOrderStatus(result.Data.Status),
+                    Status = result.Data.Status,
                     ClientOrderId = result.Data.ClientOrderId
                 };
 
@@ -92,17 +88,13 @@ public class OrderManagementService
         {
             _logger.LogInformation($"Размещение лимитного ордера: {side} {quantity} {symbol} по цене {price}");
 
-            var orderRequest = new BinanceOrderRequest
-            {
-                Symbol = symbol,
-                Side = side == OrderSide.Buy ? SpotOrderSide.Buy : SpotOrderSide.Sell,
-                Type = SpotOrderType.Limit,
-                Quantity = quantity,
-                Price = price,
-                TimeInForce = TimeInForce.GoodTillCanceled
-            };
-
-            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(orderRequest);
+            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(
+                symbol: symbol,
+                side: side,
+                type: SpotOrderType.Limit,
+                quantity: quantity,
+                price: price,
+                timeInForce: TimeInForce.GoodTillCanceled);
 
             if (result.Success)
             {
@@ -110,12 +102,12 @@ public class OrderManagementService
                 {
                     OrderId = result.Data.Id,
                     Symbol = result.Data.Symbol,
-                    Side = result.Data.Side == SpotOrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
+                    Side = result.Data.Side,
                     Type = OrderType.Limit,
                     Quantity = result.Data.Quantity,
                     Price = result.Data.Price,
                     CreateTime = result.Data.CreateTime,
-                    Status = MapOrderStatus(result.Data.Status),
+                    Status = result.Data.Status,
                     ClientOrderId = result.Data.ClientOrderId
                 };
 
@@ -143,16 +135,12 @@ public class OrderManagementService
         {
             _logger.LogInformation($"Размещение стоп-лосс ордера: {quantity} {symbol} по цене {stopPrice}");
 
-            var orderRequest = new BinanceOrderRequest
-            {
-                Symbol = symbol,
-                Side = SpotOrderSide.Sell,
-                Type = SpotOrderType.StopLoss,
-                Quantity = quantity,
-                StopPrice = stopPrice
-            };
-
-            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(orderRequest);
+            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(
+                symbol: symbol,
+                side: OrderSide.Sell,
+                type: SpotOrderType.StopLoss,
+                quantity: quantity,
+                stopPrice: stopPrice);
 
             if (result.Success)
             {
@@ -166,7 +154,7 @@ public class OrderManagementService
                     Price = result.Data.Price,
                     StopPrice = result.Data.StopPrice,
                     CreateTime = result.Data.CreateTime,
-                    Status = MapOrderStatus(result.Data.Status),
+                    Status = result.Data.Status,
                     ClientOrderId = result.Data.ClientOrderId
                 };
 
@@ -194,16 +182,12 @@ public class OrderManagementService
         {
             _logger.LogInformation($"Размещение тейк-профит ордера: {quantity} {symbol} по цене {takeProfitPrice}");
 
-            var orderRequest = new BinanceOrderRequest
-            {
-                Symbol = symbol,
-                Side = SpotOrderSide.Sell,
-                Type = SpotOrderType.TakeProfit,
-                Quantity = quantity,
-                Price = takeProfitPrice
-            };
-
-            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(orderRequest);
+            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(
+                symbol: symbol,
+                side: OrderSide.Sell,
+                type: SpotOrderType.TakeProfit,
+                quantity: quantity,
+                price: takeProfitPrice);
 
             if (result.Success)
             {
@@ -216,7 +200,7 @@ public class OrderManagementService
                     Quantity = result.Data.Quantity,
                     Price = result.Data.Price,
                     CreateTime = result.Data.CreateTime,
-                    Status = MapOrderStatus(result.Data.Status),
+                    Status = result.Data.Status,
                     ClientOrderId = result.Data.ClientOrderId
                 };
 
@@ -277,13 +261,13 @@ public class OrderManagementService
                 {
                     OrderId = result.Data.Id,
                     Symbol = result.Data.Symbol,
-                    Side = result.Data.Side == SpotOrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
+                    Side = result.Data.Side,
                     Type = MapOrderType(result.Data.Type),
                     Quantity = result.Data.Quantity,
                     Price = result.Data.Price,
                     StopPrice = result.Data.StopPrice,
                     CreateTime = result.Data.CreateTime,
-                    Status = MapOrderStatus(result.Data.Status),
+                    Status = result.Data.Status,
                     ClientOrderId = result.Data.ClientOrderId
                 };
 
@@ -314,15 +298,15 @@ public class OrderManagementService
                 {
                     OrderId = order.Id,
                     Symbol = order.Symbol,
-                    Side = order.Side == SpotOrderSide.Buy ? OrderSide.Buy : OrderSide.Sell,
+                    Side = order.Side,
                     Type = MapOrderType(order.Type),
                     Quantity = order.Quantity,
                     Price = order.Price,
                     StopPrice = order.StopPrice,
                     CreateTime = order.CreateTime,
-                    Status = MapOrderStatus(order.Status),
+                    Status = order.Status,
                     ClientOrderId = order.ClientOrderId
-                }).ToList();
+                }).ToList(); 
 
                 return orders;
             }
@@ -584,20 +568,6 @@ public class OrderManagementService
             _logger.LogError(ex, "Исключение при расчете P&L");
             return 0m;
         }
-    }
-
-    private OrderStatus MapOrderStatus(SpotOrderStatus status)
-    {
-        return status switch
-        {
-            SpotOrderStatus.New => OrderStatus.New,
-            SpotOrderStatus.PartiallyFilled => OrderStatus.PartiallyFilled,
-            SpotOrderStatus.Filled => OrderStatus.Filled,
-            SpotOrderStatus.Canceled => OrderStatus.Canceled,
-            SpotOrderStatus.Rejected => OrderStatus.Rejected,
-            SpotOrderStatus.Expired => OrderStatus.Expired,
-            _ => OrderStatus.New
-        };
     }
 
     private OrderType MapOrderType(SpotOrderType type)

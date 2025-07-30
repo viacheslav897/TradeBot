@@ -7,13 +7,13 @@ namespace TradeBot.Services;
 public class TradingBotHostedService : BackgroundService
 {
     private readonly BinanceTradingService _tradingService;
-    private readonly OrderManagementService _orderManagement;
+    private readonly IOrderManagementService _orderManagement;
     private readonly ILogger<TradingBotHostedService> _logger;
     private readonly TradingConfig _config;
 
     public TradingBotHostedService(
         BinanceTradingService tradingService,
-        OrderManagementService orderManagement,
+        IOrderManagementService orderManagement,
         ILogger<TradingBotHostedService> logger,
         TradingConfig config)
     {

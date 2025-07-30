@@ -1,0 +1,6 @@
+{
+    "omnisharp.enableRoslynAnalyzers": true,
+    "omnisharp.enableEditorConfigSupport": true,
+    "csharp.semanticHighlighting.enabled": true,
+    "dotnet.defaultSolution": "TradeBot.sln"
+} 

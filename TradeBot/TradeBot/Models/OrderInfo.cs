@@ -1,4 +1,6 @@
-﻿namespace TradeBot.Models;
+﻿using Binance.Net.Enums;
+
+namespace TradeBot.Models;
 
 public class OrderInfo
 {
@@ -14,12 +16,6 @@ public class OrderInfo
     public string ClientOrderId { get; set; } = string.Empty;
 }
 
-public enum OrderSide
-{
-    Buy,
-    Sell
-}
-
 public enum OrderType
 {
     Market,
@@ -28,12 +24,4 @@ public enum OrderType
     TakeProfit
 }
 
-public enum OrderStatus
-{
-    New,
-    PartiallyFilled,
-    Filled,
-    Canceled,
-    Rejected,
-    Expired
-}
+

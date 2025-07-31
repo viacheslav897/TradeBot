@@ -5,6 +5,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C898E844-7545-4BEB-B1CD-C129C3E9E82A}"
 	ProjectSection(SolutionItems) = preProject
 		Directory.Packages.props = Directory.Packages.props
+		compose.yaml = compose.yaml
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeBot.Db", "TradeBot.Db\TradeBot.Db.csproj", "{D6CE5964-B88E-4086-B0DC-971C381E3CA2}"

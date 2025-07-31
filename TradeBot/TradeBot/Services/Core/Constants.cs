@@ -1,4 +1,4 @@
-namespace TradeBot.Services;
+namespace TradeBot.Services.Core;
 
 public static class TradingConstants
 {

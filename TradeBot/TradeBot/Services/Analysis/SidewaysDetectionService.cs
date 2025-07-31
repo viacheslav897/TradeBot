@@ -1,8 +1,9 @@
 ﻿using Binance.Net.Interfaces;
 using Microsoft.Extensions.Logging;
+using TradeBot.Services.Core;
 using TradeBot.Trader;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Analysis;
 
 public class SidewaysDetectionService : ISidewaysDetectionService
 {

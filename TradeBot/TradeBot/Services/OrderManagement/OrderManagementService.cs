@@ -4,9 +4,10 @@ using Binance.Net.Enums;
 using CryptoExchange.Net.Authentication;
 using Microsoft.Extensions.Logging;
 using TradeBot.Models;
+using TradeBot.Services.Core;
 using TradeBot.Trader;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.OrderManagement;
 
 public class OrderManagementService : BaseOrderManagementService
 {

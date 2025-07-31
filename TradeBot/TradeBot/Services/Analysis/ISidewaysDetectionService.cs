@@ -1,6 +1,6 @@
 using Binance.Net.Interfaces;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Analysis;
 
 public interface ISidewaysDetectionService
 {

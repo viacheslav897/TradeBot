@@ -5,9 +5,12 @@ using Binance.Net.Interfaces;
 using CryptoExchange.Net.Authentication;
 using Microsoft.Extensions.Logging;
 using TradeBot.Models;
+using TradeBot.Services.Analysis;
+using TradeBot.Services.Core;
+using TradeBot.Services.OrderManagement;
 using TradeBot.Trader;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Trading;
 
 public class BinanceTradingService : IBinanceTradingService
 {

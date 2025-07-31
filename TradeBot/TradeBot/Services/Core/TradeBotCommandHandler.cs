@@ -6,9 +6,11 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using TradeBot.Models;
-using TradeBot.Trader;
+using TradeBot.Services.Notifications;
+using TradeBot.Services.OrderManagement;
+using TradeBot.Services.Trading;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Core;
 
 public class TradeBotCommandHandler
 {

@@ -1,9 +1,12 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using TradeBot.Models;
+using TradeBot.Services.Notifications;
+using TradeBot.Services.OrderManagement;
+using TradeBot.Services.Trading;
 using TradeBot.Trader;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Core;
 
 public class TradingBotHostedService : BackgroundService
 {

@@ -2,9 +2,10 @@ using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 using Microsoft.Extensions.Logging;
 using TradeBot.Models;
-using TradeBot.Trader;
+using TradeBot.Services.Core;
+using TradeBot.Services.Notifications;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Trading;
 
 public class NotificationDecoratedBinanceTradingService : IBinanceTradingService
 {

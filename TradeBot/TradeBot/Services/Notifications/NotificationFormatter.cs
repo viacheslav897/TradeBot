@@ -1,7 +1,7 @@
 using Binance.Net.Enums;
 using TradeBot.Models;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Notifications;
 
 public class NotificationFormatter
 {

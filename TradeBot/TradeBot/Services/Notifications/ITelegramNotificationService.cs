@@ -1,6 +1,6 @@
 using TradeBot.Models;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Notifications;
 
 public interface ITelegramNotificationService
 {

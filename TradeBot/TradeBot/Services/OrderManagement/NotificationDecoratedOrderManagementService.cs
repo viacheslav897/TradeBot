@@ -1,9 +1,10 @@
 using Binance.Net.Enums;
 using Microsoft.Extensions.Logging;
 using TradeBot.Models;
-using TradeBot.Trader;
+using TradeBot.Services.Core;
+using TradeBot.Services.Notifications;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.OrderManagement;
 
 public class NotificationDecoratedOrderManagementService : IOrderManagementService
 {

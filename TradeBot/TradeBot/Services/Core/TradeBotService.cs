@@ -6,7 +6,7 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Core;
 
 public class TradeBotService : BackgroundService
 {

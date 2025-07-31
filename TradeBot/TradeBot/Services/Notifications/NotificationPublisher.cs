@@ -2,7 +2,7 @@ using Binance.Net.Enums;
 using Microsoft.Extensions.Logging;
 using TradeBot.Models;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Notifications;
 
 public class NotificationPublisher : INotificationPublisher
 {

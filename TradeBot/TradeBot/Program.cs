@@ -8,6 +8,11 @@ using Telegram.Bot;
 using TradeBot.Db;
 using TradeBot.Models;
 using TradeBot.Services;
+using TradeBot.Services.Analysis;
+using TradeBot.Services.Core;
+using TradeBot.Services.Notifications;
+using TradeBot.Services.OrderManagement;
+using TradeBot.Services.Trading;
 using TradeBot.Trader;
 
 var builder = Host.CreateApplicationBuilder(args);

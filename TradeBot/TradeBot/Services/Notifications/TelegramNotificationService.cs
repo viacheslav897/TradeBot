@@ -1,11 +1,11 @@
+using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Threading.Channels;
 using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
 using TradeBot.Models;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Notifications;
 
 public class TelegramNotificationService : ITelegramNotificationService
 {

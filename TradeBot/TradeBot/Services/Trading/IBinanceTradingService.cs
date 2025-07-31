@@ -1,7 +1,7 @@
 using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Trading;
 
 public interface IBinanceTradingService
 {

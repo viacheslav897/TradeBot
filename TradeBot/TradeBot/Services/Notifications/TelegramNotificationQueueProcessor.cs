@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.Notifications;
 
 public class TelegramNotificationQueueProcessor : BackgroundService
 {

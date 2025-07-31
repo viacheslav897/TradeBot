@@ -4,10 +4,11 @@ using Microsoft.Extensions.Logging;
 using TradeBot.Db;
 using TradeBot.Db.Models;
 using TradeBot.Models;
+using TradeBot.Services.Core;
 using TradeBot.Trader;
 using OrderType = TradeBot.Models.OrderType;
 
-namespace TradeBot.Services;
+namespace TradeBot.Services.OrderManagement;
 
 public class MockOrderManagementService : BaseOrderManagementService
 {

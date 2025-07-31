@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TradeBot.Db")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7756de966aff261297e6d8a527717553e3edecbe")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2ee5b68aed26a7b55cad6e310b3e6a270404e3a8")]
 [assembly: System.Reflection.AssemblyProductAttribute("TradeBot.Db")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TradeBot.Db")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

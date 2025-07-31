@@ -9,7 +9,7 @@ using TradeBot.Trader;
 
 namespace TradeBot.Services;
 
-public class BinanceTradingService
+public class BinanceTradingService : IBinanceTradingService
 {
     private readonly BinanceRestClient _restClient;
     private readonly BinanceSocketClient _socketClient;
@@ -52,24 +52,24 @@ public class BinanceTradingService
             var result = await _restClient.SpotApi.ExchangeData.GetServerTimeAsync();
             if (result.Success)
             {
-                _logger.LogInformation($"Подключение к Binance успешно. Время сервера: {result.Data}");
+                _logger.LogInformation("Binance connection successful. Server time: {ServerTime}", result.Data);
                 return true;
             }
             else
             {
-                _logger.LogError($"Ошибка подключения к Binance: {result.Error}");
+                _logger.LogError("Binance connection error: {Error}", result.Error);
                 return false;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при тестировании подключения к Binance");
+            _logger.LogError(ex, "Exception while testing Binance connection");
             return false;
         }
     }
 
     public async Task<IEnumerable<IBinanceKline>?> GetKlinesAsync(string symbol, KlineInterval interval,
-        int limit = 100)
+        int limit = TradingConstants.Defaults.DefaultKlineLimit)
     {
         try
         {
@@ -80,13 +80,13 @@ public class BinanceTradingService
             }
             else
             {
-                _logger.LogError($"Ошибка получения данных свечей: {result.Error}");
+                _logger.LogError("Error getting kline data: {Error}", result.Error);
                 return null;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при получении данных свечей");
+            _logger.LogError(ex, "Exception while getting kline data");
             return null;
         }
     }
@@ -95,53 +95,48 @@ public class BinanceTradingService
     {
         try
         {
-            _logger.LogInformation($"Анализ рынка для {_tradingConfig.Symbol}...");
+            _logger.LogInformation("Analyzing market for {Symbol}...", _tradingConfig.Symbol);
 
-            // Получаем данные свечей
             var interval = GetKlineInterval(_tradingConfig.PeriodMinutes);
             var klines = await GetKlinesAsync(_tradingConfig.Symbol, interval, _tradingConfig.AnalysisPeriods + 10);
 
             if (klines == null || !klines.Any())
             {
-                _logger.LogWarning("Не удалось получить данные для анализа");
+                _logger.LogWarning(TradingConstants.ErrorMessages.InsufficientData);
                 return;
             }
 
-            // Проверяем, находится ли рынок в боковике
             var isSideways = _sidewaysDetection.IsSidewaysMarket(klines);
 
             if (isSideways)
             {
-                _logger.LogInformation("Рынок находится в боковом движении!");
+                _logger.LogInformation("Market is in sideways movement!");
 
                 var (resistance, support) = _sidewaysDetection.GetSupportResistanceLevels(klines);
-                _logger.LogInformation($"Уровни: Сопротивление = {resistance}, Поддержка = {support}");
+                _logger.LogInformation("Levels: Resistance = {Resistance}, Support = {Support}", resistance, support);
 
                 var currentPrice = klines.Last().ClosePrice;
-                _logger.LogInformation($"Текущая цена: {currentPrice}");
+                _logger.LogInformation("Current price: {CurrentPrice}", currentPrice);
 
-                // Проверяем активные позиции и управляем ими
                 await ManageExistingPositionsAsync(currentPrice);
 
-                // Проверяем, есть ли уже активная позиция
                 var activePosition = _orderManagement.GetActivePosition(_tradingConfig.Symbol);
                 if (activePosition != null)
                 {
-                    _logger.LogInformation($"Активная позиция уже существует для {_tradingConfig.Symbol}");
+                    _logger.LogInformation("Active position already exists for {Symbol}", _tradingConfig.Symbol);
                     return;
                 }
 
-                // Анализируем торговые возможности
                 await ConsiderTradingOpportunityAsync(currentPrice, support, resistance);
             }
             else
             {
-                _logger.LogInformation("Рынок не находится в боковом движении. Ожидаем...");
+                _logger.LogInformation("Market is not in sideways movement. Waiting...");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при анализе рынка");
+            _logger.LogError(ex, "Error during market analysis");
         }
     }
 

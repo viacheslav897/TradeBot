@@ -6,13 +6,13 @@ namespace TradeBot.Services;
 
 public class TradingBotHostedService : BackgroundService
 {
-    private readonly BinanceTradingService _tradingService;
+    private readonly IBinanceTradingService _tradingService;
     private readonly IOrderManagementService _orderManagement;
     private readonly ILogger<TradingBotHostedService> _logger;
     private readonly TradingConfig _config;
 
     public TradingBotHostedService(
-        BinanceTradingService tradingService,
+        IBinanceTradingService tradingService,
         IOrderManagementService orderManagement,
         ILogger<TradingBotHostedService> logger,
         TradingConfig config)
@@ -25,53 +25,50 @@ public class TradingBotHostedService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Торговый бот запущен");
+        _logger.LogInformation("Trading bot started");
 
-        // Проверяем подключение к Binance
         if (!await _tradingService.TestConnectionAsync())
         {
-            _logger.LogError("Не удалось подключиться к Binance. Остановка бота.");
+            _logger.LogError(TradingConstants.ErrorMessages.ConnectionFailed);
             return;
         }
 
-        // Получаем начальный баланс
-        var initialBalance = await _orderManagement.GetAccountBalanceAsync("USDT");
-        _logger.LogInformation($"Начальный баланс: {initialBalance} USDT");
+        var initialBalance = await _orderManagement.GetAccountBalanceAsync(TradingConstants.Defaults.DefaultAsset);
+        _logger.LogInformation("Initial balance: {Balance} {Asset}", initialBalance, TradingConstants.Defaults.DefaultAsset);
+
+        const int analysisIntervalMinutes = 5;
+        const int errorRetryMinutes = 1;
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                // Анализируем рынок
                 await _tradingService.AnalyzeMarketAsync();
-                
-                // Мониторим активные позиции
                 await _orderManagement.MonitorPositionsAsync();
                 
-                // Логируем статус позиций
                 var activePositions = _orderManagement.GetAllActivePositions();
                 if (activePositions.Any())
                 {
-                    _logger.LogInformation($"Активные позиции: {activePositions.Count}");
+                    _logger.LogInformation("Active positions: {Count}", activePositions.Count);
                     foreach (var position in activePositions)
                     {
                         var pnl = await _orderManagement.GetPositionPnLAsync(position.Symbol);
-                        _logger.LogInformation($"Позиция {position.Symbol}: P&L = {pnl:F2} USDT");
+                        _logger.LogInformation("Position {Symbol}: P&L = {PnL:F2} {Asset}", 
+                            position.Symbol, pnl, TradingConstants.Defaults.DefaultAsset);
                     }
                 }
                     
-                // Ждем перед следующим анализом (например, каждые 5 минут)
-                await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+                await Task.Delay(TimeSpan.FromMinutes(analysisIntervalMinutes), stoppingToken);
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("Торговый бот остановлен");
+                _logger.LogInformation("Trading bot stopped");
                 break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка в работе торгового бота");
-                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                _logger.LogError(ex, "Error in trading bot operation");
+                await Task.Delay(TimeSpan.FromMinutes(errorRetryMinutes), stoppingToken);
             }
         }
     }

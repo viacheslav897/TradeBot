@@ -4,7 +4,7 @@ using TradeBot.Trader;
 
 namespace TradeBot.Services;
 
-public class SidewaysDetectionService
+public class SidewaysDetectionService : ISidewaysDetectionService
 {
     private readonly ILogger<SidewaysDetectionService> _logger;
     private readonly TradingConfig _config;
@@ -20,23 +20,19 @@ public class SidewaysDetectionService
         var klinesArray = klines.ToArray();
         if (klinesArray.Length < _config.AnalysisPeriods)
         {
-            _logger.LogWarning("Недостаточно данных для анализа");
+            _logger.LogWarning(TradingConstants.ErrorMessages.InsufficientData);
             return false;
         }
 
-        // Берем последние N периодов
         var recentKlines = klinesArray.TakeLast(_config.AnalysisPeriods).ToArray();
 
-        // Находим максимум и минимум за период
         var highestHigh = recentKlines.Max(k => k.HighPrice);
         var lowestLow = recentKlines.Min(k => k.LowPrice);
 
-        // Вычисляем диапазон в процентах
         var range = (highestHigh - lowestLow) / lowestLow;
 
-        _logger.LogInformation($"Диапазон цены за {_config.AnalysisPeriods} периодов: {range:P2}");
+        _logger.LogInformation("Price range over {Periods} periods: {Range:P2}", _config.AnalysisPeriods, range);
 
-        // Проверяем дополнительные условия для бокового движения
         var isInRange = range <= _config.SidewaysThreshold;
         var hasMultipleTouches = HasMultipleTouchesOfLevels(recentKlines, highestHigh, lowestLow);
         var isNotTrending = !IsStrongTrend(recentKlines);
@@ -44,32 +40,31 @@ public class SidewaysDetectionService
         var isSideways = isInRange && hasMultipleTouches && isNotTrending;
 
         _logger.LogInformation(
-            $"Боковое движение: {isSideways} (Range: {isInRange}, Touches: {hasMultipleTouches}, NotTrending: {isNotTrending})");
+            "Sideways movement: {IsSideways} (Range: {IsInRange}, Touches: {HasMultipleTouches}, NotTrending: {IsNotTrending})",
+            isSideways, isInRange, hasMultipleTouches, isNotTrending);
 
         return isSideways;
     }
 
     private bool HasMultipleTouchesOfLevels(IBinanceKline[] klines, decimal resistance, decimal support)
     {
-        var tolerance = (resistance - support) * 0.1m; // 10% толерантность
+        const decimal tolerancePercent = 0.1m; // 10% tolerance
+        var tolerance = (resistance - support) * tolerancePercent;
 
         var resistanceTouches = klines.Count(k => Math.Abs(k.HighPrice - resistance) <= tolerance);
         var supportTouches = klines.Count(k => Math.Abs(k.LowPrice - support) <= tolerance);
 
-        // Должно быть минимум 2 касания каждого уровня
-        return resistanceTouches >= 2 && supportTouches >= 2;
+        const int minTouches = 2;
+        return resistanceTouches >= minTouches && supportTouches >= minTouches;
     }
 
     private bool IsStrongTrend(IBinanceKline[] klines)
     {
-        // Простой алгоритм определения сильного тренда
-        // Сравниваем первую и последнюю цену закрытия
         var firstClose = klines.First().ClosePrice;
         var lastClose = klines.Last().ClosePrice;
 
         var priceChange = Math.Abs(lastClose - firstClose) / firstClose;
 
-        // Если изменение больше половины от порога бокового движения, считаем трендом
         return priceChange > (_config.SidewaysThreshold / 2);
     }
 

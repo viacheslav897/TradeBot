@@ -8,25 +8,15 @@ using TradeBot.Trader;
 
 namespace TradeBot.Services;
 
-public class OrderManagementService : IOrderManagementService
+public class OrderManagementService : BaseOrderManagementService
 {
     private readonly BinanceRestClient _restClient;
-    private readonly ILogger<OrderManagementService> _logger;
-    private readonly TradingConfig _tradingConfig;
-    private readonly Dictionary<string, Position> _activePositions;
-    private readonly Dictionary<long, OrderInfo> _activeOrders;
 
     public OrderManagementService(
         BinanceConfig binanceConfig,
         TradingConfig tradingConfig,
-        ILogger<OrderManagementService> logger)
+        ILogger<OrderManagementService> logger) : base(tradingConfig, logger)
     {
-        _tradingConfig = tradingConfig;
-        _logger = logger;
-        _activePositions = new Dictionary<string, Position>();
-        _activeOrders = new Dictionary<long, OrderInfo>();
-        
-        // Создаем BinanceRestClient для OrderManagementService
         _restClient = new BinanceRestClient(options =>
         {
             options.ApiCredentials = new ApiCredentials(binanceConfig.ApiKey, binanceConfig.ApiSecret);
@@ -35,11 +25,11 @@ public class OrderManagementService : IOrderManagementService
         });
     }
 
-    public async Task<OrderInfo?> PlaceMarketOrderAsync(string symbol, OrderSide side, decimal quantity)
+    public override async Task<OrderInfo?> PlaceMarketOrderAsync(string symbol, OrderSide side, decimal quantity)
     {
         try
         {
-            _logger.LogInformation($"Размещение рыночного ордера: {side} {quantity} {symbol}");
+            _logger.LogInformation("Placing market order: {Side} {Quantity} {Symbol}", side, quantity, symbol);
 
             var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(
                 symbol: symbol,
@@ -49,42 +39,40 @@ public class OrderManagementService : IOrderManagementService
 
             if (result.Success)
             {
-                var orderInfo = new OrderInfo
-                {
-                    OrderId = result.Data.Id,
-                    Symbol = result.Data.Symbol,
-                    Side = result.Data.Side,
-                    Type = OrderType.Market,
-                    Quantity = result.Data.Quantity,
-                    Price = result.Data.Price,
-                    CreateTime = result.Data.CreateTime,
-                    Status = result.Data.Status,
-                    ClientOrderId = result.Data.ClientOrderId
-                };
+                var orderInfo = CreateOrderInfo(
+                    result.Data.Id,
+                    result.Data.Symbol,
+                    result.Data.Side,
+                    OrderType.Market,
+                    result.Data.Quantity,
+                    result.Data.Price,
+                    result.Data.CreateTime,
+                    result.Data.Status,
+                    result.Data.ClientOrderId);
 
                 _activeOrders[orderInfo.OrderId] = orderInfo;
-                _logger.LogInformation($"Ордер размещен успешно: {orderInfo.OrderId}");
+                _logger.LogInformation("Order placed successfully: {OrderId}", orderInfo.OrderId);
 
                 return orderInfo;
             }
             else
             {
-                _logger.LogError($"Ошибка размещения ордера: {result.Error}");
+                _logger.LogError("Order placement error: {Error}", result.Error);
                 return null;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при размещении рыночного ордера");
+            _logger.LogError(ex, "Exception while placing market order");
             return null;
         }
     }
 
-    public async Task<OrderInfo?> PlaceLimitOrderAsync(string symbol, OrderSide side, decimal quantity, decimal price)
+    public override async Task<OrderInfo?> PlaceLimitOrderAsync(string symbol, OrderSide side, decimal quantity, decimal price)
     {
         try
         {
-            _logger.LogInformation($"Размещение лимитного ордера: {side} {quantity} {symbol} по цене {price}");
+            _logger.LogInformation("Placing limit order: {Side} {Quantity} {Symbol} at price {Price}", side, quantity, symbol, price);
 
             var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(
                 symbol: symbol,
@@ -96,65 +84,63 @@ public class OrderManagementService : IOrderManagementService
 
             if (result.Success)
             {
-                var orderInfo = new OrderInfo
-                {
-                    OrderId = result.Data.Id,
-                    Symbol = result.Data.Symbol,
-                    Side = result.Data.Side,
-                    Type = OrderType.Limit,
-                    Quantity = result.Data.Quantity,
-                    Price = result.Data.Price,
-                    CreateTime = result.Data.CreateTime,
-                    Status = result.Data.Status,
-                    ClientOrderId = result.Data.ClientOrderId
-                };
+                var orderInfo = CreateOrderInfo(
+                    result.Data.Id,
+                    result.Data.Symbol,
+                    result.Data.Side,
+                    OrderType.Limit,
+                    result.Data.Quantity,
+                    result.Data.Price,
+                    result.Data.CreateTime,
+                    result.Data.Status,
+                    result.Data.ClientOrderId);
 
                 _activeOrders[orderInfo.OrderId] = orderInfo;
-                _logger.LogInformation($"Лимитный ордер размещен успешно: {orderInfo.OrderId}");
+                _logger.LogInformation("Limit order placed successfully: {OrderId}", orderInfo.OrderId);
 
                 return orderInfo;
             }
             else
             {
-                _logger.LogError($"Ошибка размещения лимитного ордера: {result.Error}");
+                _logger.LogError("Limit order placement error: {Error}", result.Error);
                 return null;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при размещении лимитного ордера");
+            _logger.LogError(ex, "Exception while placing limit order");
             return null;
         }
     }
 
-    public async Task<bool> CancelOrderAsync(string symbol, long orderId)
+    public override async Task<bool> CancelOrderAsync(string symbol, long orderId)
     {
         try
         {
-            _logger.LogInformation($"Отмена ордера: {orderId} для {symbol}");
+            _logger.LogInformation("Canceling order: {OrderId} for {Symbol}", orderId, symbol);
 
             var result = await _restClient.SpotApi.Trading.CancelOrderAsync(symbol, orderId);
 
             if (result.Success)
             {
                 _activeOrders.Remove(orderId);
-                _logger.LogInformation($"Ордер {orderId} отменен успешно");
+                _logger.LogInformation("Order {OrderId} canceled successfully", orderId);
                 return true;
             }
             else
             {
-                _logger.LogError($"Ошибка отмены ордера: {result.Error}");
+                _logger.LogError("Order cancellation error: {Error}", result.Error);
                 return false;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при отмене ордера");
+            _logger.LogError(ex, "Exception while canceling order");
             return false;
         }
     }
 
-    public async Task<OrderInfo?> GetOrderAsync(string symbol, long orderId)
+    public override async Task<OrderInfo?> GetOrderAsync(string symbol, long orderId)
     {
         try
         {
@@ -162,36 +148,32 @@ public class OrderManagementService : IOrderManagementService
 
             if (result.Success)
             {
-                var orderInfo = new OrderInfo
-                {
-                    OrderId = result.Data.Id,
-                    Symbol = result.Data.Symbol,
-                    Side = result.Data.Side,
-                    Type = MapOrderType(result.Data.Type),
-                    Quantity = result.Data.Quantity,
-                    Price = result.Data.Price,
-                    StopPrice = result.Data.StopPrice,
-                    CreateTime = result.Data.CreateTime,
-                    Status = result.Data.Status,
-                    ClientOrderId = result.Data.ClientOrderId
-                };
-
-                return orderInfo;
+                return CreateOrderInfo(
+                    result.Data.Id,
+                    result.Data.Symbol,
+                    result.Data.Side,
+                    MapOrderType(result.Data.Type),
+                    result.Data.Quantity,
+                    result.Data.Price,
+                    result.Data.CreateTime,
+                    result.Data.Status,
+                    result.Data.ClientOrderId,
+                    result.Data.StopPrice);
             }
             else
             {
-                _logger.LogError($"Ошибка получения ордера: {result.Error}");
+                _logger.LogError("Error getting order: {Error}", result.Error);
                 return null;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при получении ордера");
+            _logger.LogError(ex, "Exception while getting order");
             return null;
         }
     }
 
-    public async Task<List<OrderInfo>> GetOpenOrdersAsync(string symbol)
+    public override async Task<List<OrderInfo>> GetOpenOrdersAsync(string symbol)
     {
         try
         {
@@ -199,113 +181,34 @@ public class OrderManagementService : IOrderManagementService
 
             if (result.Success)
             {
-                var orders = result.Data.Select(order => new OrderInfo
-                {
-                    OrderId = order.Id,
-                    Symbol = order.Symbol,
-                    Side = order.Side,
-                    Type = MapOrderType(order.Type),
-                    Quantity = order.Quantity,
-                    Price = order.Price,
-                    StopPrice = order.StopPrice,
-                    CreateTime = order.CreateTime,
-                    Status = order.Status,
-                    ClientOrderId = order.ClientOrderId
-                }).ToList(); 
-
-                return orders;
+                return result.Data.Select(order => CreateOrderInfo(
+                    order.Id,
+                    order.Symbol,
+                    order.Side,
+                    MapOrderType(order.Type),
+                    order.Quantity,
+                    order.Price,
+                    order.CreateTime,
+                    order.Status,
+                    order.ClientOrderId,
+                    order.StopPrice)).ToList();
             }
             else
             {
-                _logger.LogError($"Ошибка получения открытых ордеров: {result.Error}");
+                _logger.LogError("Error getting open orders: {Error}", result.Error);
                 return new List<OrderInfo>();
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при получении открытых ордеров");
+            _logger.LogError(ex, "Exception while getting open orders");
             return new List<OrderInfo>();
         }
     }
 
-    public async Task<Position?> CreatePositionAsync(string symbol, OrderSide side, decimal quantity,
-        decimal entryPrice)
-    {
-        try
-        {
-            var position = new Position
-            {
-                Symbol = symbol,
-                Side = side,
-                Quantity = quantity,
-                EntryPrice = entryPrice,
-                EntryTime = DateTime.UtcNow,
-                IsActive = true
-            };
 
-            _activePositions[symbol] = position;
-            _logger.LogInformation($"Позиция создана: {symbol} {side} {quantity} по цене {entryPrice}");
 
-            return position;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Исключение при создании позиции");
-            return null;
-        }
-    }
-
-    public async Task<bool> ClosePositionAsync(string symbol)
-    {
-        try
-        {
-            if (!_activePositions.ContainsKey(symbol))
-            {
-                _logger.LogWarning($"Позиция для {symbol} не найдена");
-                return false;
-            }
-
-            var position = _activePositions[symbol];
-
-            // Закрываем позицию рыночным ордером
-            var closeSide = position.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-            var closeOrder = await PlaceMarketOrderAsync(symbol, closeSide, position.Quantity);
-
-            if (closeOrder != null)
-            {
-                _activePositions.Remove(symbol);
-                _logger.LogInformation($"Позиция {symbol} закрыта успешно");
-                return true;
-            }
-            else
-            {
-                _logger.LogError($"Ошибка закрытия позиции {symbol}");
-                return false;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Исключение при закрытии позиции");
-            return false;
-        }
-    }
-
-    public Position? GetActivePosition(string symbol)
-    {
-        return _activePositions.ContainsKey(symbol) ? _activePositions[symbol] : null;
-    }
-
-    public List<Position> GetAllActivePositions()
-    {
-        return _activePositions.Values.Where(p => p.IsActive).ToList();
-    }
-
-    public List<OrderInfo> GetAllActiveOrders()
-    {
-        return _activeOrders.Values.ToList();
-    }
-
-    public async Task<decimal> GetAccountBalanceAsync(string asset = "USDT")
+    public override async Task<decimal> GetAccountBalanceAsync(string asset = TradingConstants.Defaults.DefaultAsset)
     {
         try
         {
@@ -318,22 +221,21 @@ public class OrderManagementService : IOrderManagementService
             }
             else
             {
-                _logger.LogError($"Ошибка получения баланса: {result.Error}");
+                _logger.LogError("Error getting balance: {Error}", result.Error);
                 return 0m;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при получении баланса");
+            _logger.LogError(ex, "Exception while getting balance");
             return 0m;
         }
     }
 
-    public async Task<decimal> CalculateOrderQuantityAsync(string symbol, decimal orderSize)
+    public override async Task<decimal> CalculateOrderQuantityAsync(string symbol, decimal orderSize)
     {
         try
         {
-            // Получаем текущую цену символа
             var tickerResult = await _restClient.SpotApi.ExchangeData.GetTickerAsync(symbol);
 
             if (tickerResult.Success)
@@ -341,20 +243,15 @@ public class OrderManagementService : IOrderManagementService
                 var currentPrice = tickerResult.Data.LastPrice;
                 var quantity = orderSize / currentPrice;
 
-                // Округляем количество согласно правилам Binance
                 var symbolInfo = await _restClient.SpotApi.ExchangeData.GetExchangeInfoAsync();
                 if (symbolInfo.Success)
                 {
                     var symbolData = symbolInfo.Data.Symbols.FirstOrDefault(s => s.Name == symbol);
-                    if (symbolData != null)
+                    if (symbolData?.LotSizeFilter != null)
                     {
-                        var lotSizeFilter = symbolData.LotSizeFilter;
-                        if (lotSizeFilter != null)
-                        {
-                            var stepSize = lotSizeFilter.StepSize;
-                            var precision = (int)Math.Abs(Math.Log10((double)stepSize));
-                            quantity = Math.Round(quantity, precision);
-                        }
+                        var stepSize = symbolData.LotSizeFilter.StepSize;
+                        var precision = (int)Math.Abs(Math.Log10((double)stepSize));
+                        quantity = Math.Round(quantity, precision);
                     }
                 }
 
@@ -362,45 +259,18 @@ public class OrderManagementService : IOrderManagementService
             }
             else
             {
-                _logger.LogError($"Ошибка получения цены для {symbol}: {tickerResult.Error}");
+                _logger.LogError("Error getting price for {Symbol}: {Error}", symbol, tickerResult.Error);
                 return 0m;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при расчете количества ордера");
+            _logger.LogError(ex, "Exception while calculating order quantity");
             return 0m;
         }
     }
 
-    public async Task MonitorPositionsAsync()
-    {
-        try
-        {
-            var activePositions = GetAllActivePositions();
-
-            foreach (var position in activePositions)
-            {
-                // Проверяем, не истекло ли время позиции
-                var positionAge = DateTime.UtcNow - position.EntryTime;
-                if (positionAge.TotalHours >= _tradingConfig.MaxPositionHoldHours)
-                {
-                    _logger.LogInformation($"Позиция {position.Symbol} истекла по времени ({_tradingConfig.MaxPositionHoldHours} часов). Закрываем...");
-                    await ClosePositionAsync(position.Symbol);
-                    continue;
-                }
-
-                // В новой стратегии нет автоматических стоп-лоссов и тейк-профитов
-                // Позиции закрываются только при достижении минимальной прибыли
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Исключение при мониторинге позиций");
-        }
-    }
-
-    public async Task<decimal> GetPositionPnLAsync(string symbol)
+    public override async Task<decimal> GetPositionPnLAsync(string symbol)
     {
         try
         {
@@ -408,39 +278,20 @@ public class OrderManagementService : IOrderManagementService
             if (position == null)
                 return 0m;
 
-            // Получаем текущую цену
             var tickerResult = await _restClient.SpotApi.ExchangeData.GetTickerAsync(symbol);
             if (!tickerResult.Success)
                 return 0m;
 
             var currentPrice = tickerResult.Data.LastPrice;
 
-            // Рассчитываем P&L
-            if (position.Side == OrderSide.Buy)
-            {
-                return (currentPrice - position.EntryPrice) * position.Quantity;
-            }
-            else
-            {
-                return (position.EntryPrice - currentPrice) * position.Quantity;
-            }
+            return position.Side == OrderSide.Buy
+                ? (currentPrice - position.EntryPrice) * position.Quantity
+                : (position.EntryPrice - currentPrice) * position.Quantity;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Исключение при расчете P&L");
+            _logger.LogError(ex, "Exception while calculating P&L");
             return 0m;
         }
-    }
-
-    private OrderType MapOrderType(SpotOrderType type)
-    {
-        return type switch
-        {
-            SpotOrderType.Market => OrderType.Market,
-            SpotOrderType.Limit => OrderType.Limit,
-            SpotOrderType.StopLoss => OrderType.StopLoss,
-            SpotOrderType.TakeProfit => OrderType.TakeProfit,
-            _ => OrderType.Market
-        };
     }
 }

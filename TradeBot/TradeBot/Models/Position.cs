@@ -9,9 +9,5 @@ public class Position
     public decimal Quantity { get; set; }
     public decimal EntryPrice { get; set; }
     public DateTime EntryTime { get; set; }
-    public decimal? TakeProfitPrice { get; set; }
-    public decimal? StopLossPrice { get; set; }
-    public long? TakeProfitOrderId { get; set; } 
-    public long? StopLossOrderId { get; set; }
     public bool IsActive { get; set; } = true;
 }

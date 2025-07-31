@@ -1,8 +1,6 @@
 ﻿using Binance.Net;
 using Binance.Net.Clients;
 using Binance.Net.Enums;
-using Binance.Net.Objects;
-using Binance.Net.Objects.Models.Spot;
 using CryptoExchange.Net.Authentication;
 using Microsoft.Extensions.Logging;
 using TradeBot.Models;
@@ -129,99 +127,6 @@ public class OrderManagementService : IOrderManagementService
         }
     }
 
-    public async Task<OrderInfo?> PlaceStopLossOrderAsync(string symbol, decimal quantity, decimal stopPrice)
-    {
-        try
-        {
-            _logger.LogInformation($"Размещение стоп-лосс ордера: {quantity} {symbol} по цене {stopPrice}");
-
-            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(
-                symbol: symbol,
-                side: OrderSide.Sell,
-                type: SpotOrderType.StopLoss,
-                quantity: quantity,
-                stopPrice: stopPrice);
-
-            if (result.Success)
-            {
-                var orderInfo = new OrderInfo
-                {
-                    OrderId = result.Data.Id,
-                    Symbol = result.Data.Symbol,
-                    Side = OrderSide.Sell,
-                    Type = OrderType.StopLoss,
-                    Quantity = result.Data.Quantity,
-                    Price = result.Data.Price,
-                    StopPrice = result.Data.StopPrice,
-                    CreateTime = result.Data.CreateTime,
-                    Status = result.Data.Status,
-                    ClientOrderId = result.Data.ClientOrderId
-                };
-
-                _activeOrders[orderInfo.OrderId] = orderInfo;
-                _logger.LogInformation($"Стоп-лосс ордер размещен успешно: {orderInfo.OrderId}");
-
-                return orderInfo;
-            }
-            else
-            {
-                _logger.LogError($"Ошибка размещения стоп-лосс ордера: {result.Error}");
-                return null;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Исключение при размещении стоп-лосс ордера");
-            return null;
-        }
-    }
-
-    public async Task<OrderInfo?> PlaceTakeProfitOrderAsync(string symbol, decimal quantity, decimal takeProfitPrice)
-    {
-        try
-        {
-            _logger.LogInformation($"Размещение тейк-профит ордера: {quantity} {symbol} по цене {takeProfitPrice}");
-
-            var result = await _restClient.SpotApi.Trading.PlaceOrderAsync(
-                symbol: symbol,
-                side: OrderSide.Sell,
-                type: SpotOrderType.TakeProfit,
-                quantity: quantity,
-                price: takeProfitPrice);
-
-            if (result.Success)
-            {
-                var orderInfo = new OrderInfo
-                {
-                    OrderId = result.Data.Id,
-                    Symbol = result.Data.Symbol,
-                    Side = OrderSide.Sell,
-                    Type = OrderType.TakeProfit,
-                    Quantity = result.Data.Quantity,
-                    Price = result.Data.Price,
-                    CreateTime = result.Data.CreateTime,
-                    Status = result.Data.Status,
-                    ClientOrderId = result.Data.ClientOrderId
-                };
-
-                _activeOrders[orderInfo.OrderId] = orderInfo;
-                _logger.LogInformation($"Тейк-профит ордер размещен успешно: {orderInfo.OrderId}");
-
-                return orderInfo;
-            }
-            else
-            {
-                _logger.LogError($"Ошибка размещения тейк-профит ордера: {result.Error}");
-                return null;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Исключение при размещении тейк-профит ордера");
-            return null;
-        }
-    }
-
     public async Task<bool> CancelOrderAsync(string symbol, long orderId)
     {
         try
@@ -338,18 +243,6 @@ public class OrderManagementService : IOrderManagementService
                 IsActive = true
             };
 
-            // Рассчитываем уровни стоп-лосс и тейк-профит
-            if (side == OrderSide.Buy)
-            {
-                position.StopLossPrice = entryPrice * (1 - _tradingConfig.StopLossPercent / 100);
-                position.TakeProfitPrice = entryPrice * (1 + _tradingConfig.TakeProfitPercent / 100);
-            }
-            else
-            {
-                position.StopLossPrice = entryPrice * (1 + _tradingConfig.StopLossPercent / 100);
-                position.TakeProfitPrice = entryPrice * (1 - _tradingConfig.TakeProfitPercent / 100);
-            }
-
             _activePositions[symbol] = position;
             _logger.LogInformation($"Позиция создана: {symbol} {side} {quantity} по цене {entryPrice}");
 
@@ -373,17 +266,6 @@ public class OrderManagementService : IOrderManagementService
             }
 
             var position = _activePositions[symbol];
-
-            // Отменяем связанные ордера
-            if (position.TakeProfitOrderId.HasValue)
-            {
-                await CancelOrderAsync(symbol, position.TakeProfitOrderId.Value);
-            }
-
-            if (position.StopLossOrderId.HasValue)
-            {
-                await CancelOrderAsync(symbol, position.StopLossOrderId.Value);
-            }
 
             // Закрываем позицию рыночным ордером
             var closeSide = position.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
@@ -499,37 +381,17 @@ public class OrderManagementService : IOrderManagementService
 
             foreach (var position in activePositions)
             {
-                // Проверяем, не истекло ли время позиции (максимум 4 часа)
+                // Проверяем, не истекло ли время позиции
                 var positionAge = DateTime.UtcNow - position.EntryTime;
-                if (positionAge.TotalHours >= 4)
+                if (positionAge.TotalHours >= _tradingConfig.MaxPositionHoldHours)
                 {
-                    _logger.LogInformation($"Позиция {position.Symbol} истекла по времени. Закрываем...");
+                    _logger.LogInformation($"Позиция {position.Symbol} истекла по времени ({_tradingConfig.MaxPositionHoldHours} часов). Закрываем...");
                     await ClosePositionAsync(position.Symbol);
                     continue;
                 }
 
-                // Проверяем статус связанных ордеров
-                if (position.TakeProfitOrderId.HasValue)
-                {
-                    var takeProfitOrder = await GetOrderAsync(position.Symbol, position.TakeProfitOrderId.Value);
-                    if (takeProfitOrder?.Status == OrderStatus.Filled)
-                    {
-                        _logger.LogInformation($"Тейк-профит исполнен для позиции {position.Symbol}");
-                        position.IsActive = false;
-                        _activePositions.Remove(position.Symbol);
-                    }
-                }
-
-                if (position.StopLossOrderId.HasValue)
-                {
-                    var stopLossOrder = await GetOrderAsync(position.Symbol, position.StopLossOrderId.Value);
-                    if (stopLossOrder?.Status == OrderStatus.Filled)
-                    {
-                        _logger.LogInformation($"Стоп-лосс исполнен для позиции {position.Symbol}");
-                        position.IsActive = false;
-                        _activePositions.Remove(position.Symbol);
-                    }
-                }
+                // В новой стратегии нет автоматических стоп-лоссов и тейк-профитов
+                // Позиции закрываются только при достижении минимальной прибыли
             }
         }
         catch (Exception ex)

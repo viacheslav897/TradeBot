@@ -2,7 +2,6 @@
 using Binance.Net.Clients;
 using Binance.Net.Enums;
 using Binance.Net.Interfaces;
-using Binance.Net.Objects.Options;
 using CryptoExchange.Net.Authentication;
 using Microsoft.Extensions.Logging;
 using TradeBot.Models;
@@ -121,6 +120,9 @@ public class BinanceTradingService
                 var currentPrice = klines.Last().ClosePrice;
                 _logger.LogInformation($"Текущая цена: {currentPrice}");
 
+                // Проверяем активные позиции и управляем ими
+                await ManageExistingPositionsAsync(currentPrice);
+
                 // Проверяем, есть ли уже активная позиция
                 var activePosition = _orderManagement.GetActivePosition(_tradingConfig.Symbol);
                 if (activePosition != null)
@@ -143,31 +145,77 @@ public class BinanceTradingService
         }
     }
 
-    private async Task ConsiderTradingOpportunityAsync(decimal currentPrice, decimal support, decimal resistance)
+    private async Task ManageExistingPositionsAsync(decimal currentPrice)
     {
-        var distanceToSupport = (currentPrice - support) / support;
-        var distanceToResistance = (resistance - currentPrice) / currentPrice;
+        var activePosition = _orderManagement.GetActivePosition(_tradingConfig.Symbol);
+        if (activePosition == null) return;
 
-        _logger.LogInformation(
-            $"Расстояние до поддержки: {distanceToSupport:P2}, до сопротивления: {distanceToResistance:P2}");
+        var pnl = await _orderManagement.GetPositionPnLAsync(_tradingConfig.Symbol);
+        var profitPercent = (currentPrice - activePosition.EntryPrice) / activePosition.EntryPrice;
 
-        // Простая логика: покупаем около поддержки, продаем около сопротивления
-        var buyThreshold = 0.01m; // 1% от поддержки
-        var sellThreshold = 0.01m; // 1% от сопротивления
+        _logger.LogInformation($"Позиция: Вход = {activePosition.EntryPrice}, Текущая = {currentPrice}, P&L = {pnl:F2} USDT ({profitPercent:P2})");
 
-        if (distanceToSupport <= buyThreshold)
+        // Закрываем позицию только если есть прибыль выше минимального порога
+        if (profitPercent >= _tradingConfig.MinProfitPercent)
         {
-            _logger.LogInformation("Возможность покупки около уровня поддержки");
-            await ExecuteBuyOrderAsync(currentPrice, support, resistance);
+            _logger.LogInformation($"Закрытие позиции с прибылью {profitPercent:P2}");
+            await ClosePositionWithProfitAsync(activePosition, currentPrice);
         }
-        else if (distanceToResistance <= sellThreshold)
+        else if (profitPercent < 0)
         {
-            _logger.LogInformation("Возможность продажи около уровня сопротивления");
-            await ExecuteSellOrderAsync(currentPrice, support, resistance);
+            _logger.LogInformation($"Позиция в убытке {profitPercent:P2}. Ждем роста цены выше {activePosition.EntryPrice}");
         }
         else
         {
-            _logger.LogInformation("Цена находится в середине диапазона, ждем лучшей возможности");
+            _logger.LogInformation($"Позиция в небольшой прибыли {profitPercent:P2}. Ждем достижения минимального порога {_tradingConfig.MinProfitPercent:P2}");
+        }
+    }
+
+    private async Task ClosePositionWithProfitAsync(Position position, decimal currentPrice)
+    {
+        try
+        {
+            // Размещаем рыночный ордер на продажу
+            var sellOrder = await _orderManagement.PlaceMarketOrderAsync(_tradingConfig.Symbol, OrderSide.Sell, position.Quantity);
+
+            if (sellOrder != null && sellOrder.Status == OrderStatus.Filled)
+            {
+                _logger.LogInformation($"Позиция закрыта с прибылью: {sellOrder.OrderId}");
+                
+                // Закрываем позицию в системе
+                await _orderManagement.ClosePositionAsync(_tradingConfig.Symbol);
+                
+                var profit = (sellOrder.Price - position.EntryPrice) * position.Quantity;
+                _logger.LogInformation($"Реализованная прибыль: {profit:F2} USDT");
+            }
+            else
+            {
+                _logger.LogError("Ошибка закрытия позиции");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Исключение при закрытии позиции");
+        }
+    }
+
+    private async Task ConsiderTradingOpportunityAsync(decimal currentPrice, decimal support, decimal resistance)
+    {
+        // Рассчитываем уровни входа с запасом от экстремумов
+        var buyLevel = support * (1 + _tradingConfig.BuyDistanceFromSupport);
+        var sellLevel = resistance * (1 - _tradingConfig.SellDistanceFromResistance);
+
+        _logger.LogInformation($"Уровни входа: Покупка = {buyLevel}, Продажа = {sellLevel}");
+
+        // Проверяем возможность покупки около поддержки
+        if (currentPrice <= buyLevel)
+        {
+            _logger.LogInformation($"Возможность покупки около уровня поддержки (цена: {currentPrice}, уровень: {buyLevel})");
+            await ExecuteBuyOrderAsync(currentPrice, support, resistance);
+        }
+        else
+        {
+            _logger.LogInformation($"Цена {currentPrice} выше уровня покупки {buyLevel}. Ждем снижения");
         }
     }
 
@@ -201,7 +249,7 @@ public class BinanceTradingService
             {
                 _logger.LogInformation($"Ордер на покупку исполнен: {buyOrder.OrderId}");
 
-                // Создаем позицию
+                // Создаем позицию БЕЗ стоп-лосса и тейк-профита
                 var position = await _orderManagement.CreatePositionAsync(
                     _tradingConfig.Symbol, 
                     OrderSide.Buy, 
@@ -210,29 +258,8 @@ public class BinanceTradingService
 
                 if (position != null)
                 {
-                    // Размещаем стоп-лосс ордер
-                    var stopLossOrder = await _orderManagement.PlaceStopLossOrderAsync(
-                        _tradingConfig.Symbol, 
-                        position.Quantity, 
-                        position.StopLossPrice!.Value);
-
-                    if (stopLossOrder != null)
-                    {
-                        position.StopLossOrderId = stopLossOrder.OrderId;
-                        _logger.LogInformation($"Стоп-лосс ордер размещен: {stopLossOrder.OrderId} по цене {position.StopLossPrice}");
-                    }
-
-                    // Размещаем тейк-профит ордер
-                    var takeProfitOrder = await _orderManagement.PlaceTakeProfitOrderAsync(
-                        _tradingConfig.Symbol, 
-                        position.Quantity, 
-                        position.TakeProfitPrice!.Value);
-
-                    if (takeProfitOrder != null)
-                    {
-                        position.TakeProfitOrderId = takeProfitOrder.OrderId;
-                        _logger.LogInformation($"Тейк-профит ордер размещен: {takeProfitOrder.OrderId} по цене {position.TakeProfitPrice}");
-                    }
+                    _logger.LogInformation($"Позиция создана: {position.Symbol}, количество: {position.Quantity}, цена входа: {position.EntryPrice}");
+                    _logger.LogInformation("Позиция будет закрыта только при достижении минимальной прибыли");
                 }
             }
             else
@@ -243,25 +270,6 @@ public class BinanceTradingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Исключение при исполнении ордера на покупку");
-        }
-    }
-
-    private async Task ExecuteSellOrderAsync(decimal currentPrice, decimal support, decimal resistance)
-    {
-        try
-        {
-            // Для продажи нам нужна позиция, которую мы продаем
-            // В данном случае мы продаем короткую позицию (если поддерживается)
-            // Или просто логируем возможность продажи
-            
-            _logger.LogInformation($"Обнаружена возможность продажи около сопротивления {resistance}");
-            
-            // Здесь можно добавить логику для коротких позиций
-            // Пока просто логируем возможность
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Исключение при исполнении ордера на продажу");
         }
     }
 

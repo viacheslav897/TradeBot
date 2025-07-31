@@ -5,6 +5,7 @@ using TradeBot.Db;
 using TradeBot.Db.Models;
 using TradeBot.Models;
 using TradeBot.Trader;
+using OrderType = TradeBot.Models.OrderType;
 
 namespace TradeBot.Services;
 
@@ -40,7 +41,7 @@ public class MockOrderManagementService : IOrderManagementService
                 OrderId = _nextOrderId++,
                 Symbol = symbol,
                 Side = side,
-                Type = MapOrderType(TradeBot.Db.Models.OrderType.Market),
+                Type = MapOrderType(Db.Models.OrderType.Market),
                 Quantity = quantity,
                 Price = 0, // Market orders don't have a specific price
                 CreateTime = DateTime.UtcNow,
@@ -88,7 +89,7 @@ public class MockOrderManagementService : IOrderManagementService
                 OrderId = _nextOrderId++,
                 Symbol = symbol,
                 Side = side,
-                Type = MapOrderType(TradeBot.Db.Models.OrderType.Limit),
+                Type = MapOrderType(Db.Models.OrderType.Limit),
                 Quantity = quantity,
                 Price = price,
                 CreateTime = DateTime.UtcNow,
@@ -121,104 +122,6 @@ public class MockOrderManagementService : IOrderManagementService
         catch (Exception ex)
         {
             _logger.LogError(ex, "MOCK: Исключение при размещении лимитного ордера");
-            return null;
-        }
-    }
-
-    public async Task<OrderInfo?> PlaceStopLossOrderAsync(string symbol, decimal quantity, decimal stopPrice)
-    {
-        try
-        {
-            _logger.LogInformation($"MOCK: Размещение стоп-лосс ордера: {quantity} {symbol} по цене {stopPrice}");
-
-            var orderInfo = new OrderInfo
-            {
-                OrderId = _nextOrderId++,
-                Symbol = symbol,
-                Side = OrderSide.Sell,
-                Type = MapOrderType(TradeBot.Db.Models.OrderType.StopLoss),
-                Quantity = quantity,
-                Price = 0,
-                StopPrice = stopPrice,
-                CreateTime = DateTime.UtcNow,
-                Status = OrderStatus.New,
-                ClientOrderId = Guid.NewGuid().ToString()
-            };
-
-            // Save to database
-            var fakeOrder = new FakeOrder
-            {
-                OrderId = orderInfo.OrderId,
-                Symbol = orderInfo.Symbol,
-                Side = orderInfo.Side,
-                Type = MapToDbOrderType(orderInfo.Type),
-                Quantity = orderInfo.Quantity,
-                Price = orderInfo.Price,
-                StopPrice = orderInfo.StopPrice,
-                CreateTime = orderInfo.CreateTime,
-                Status = orderInfo.Status,
-                ClientOrderId = orderInfo.ClientOrderId
-            };
-
-            _dbContext.FakeOrders.Add(fakeOrder);
-            await _dbContext.SaveChangesAsync();
-
-            _activeOrders[orderInfo.OrderId] = orderInfo;
-            _logger.LogInformation($"MOCK: Стоп-лосс ордер размещен успешно: {orderInfo.OrderId}");
-
-            return orderInfo;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "MOCK: Исключение при размещении стоп-лосс ордера");
-            return null;
-        }
-    }
-
-    public async Task<OrderInfo?> PlaceTakeProfitOrderAsync(string symbol, decimal quantity, decimal takeProfitPrice)
-    {
-        try
-        {
-            _logger.LogInformation($"MOCK: Размещение тейк-профит ордера: {quantity} {symbol} по цене {takeProfitPrice}");
-
-            var orderInfo = new OrderInfo
-            {
-                OrderId = _nextOrderId++,
-                Symbol = symbol,
-                Side = OrderSide.Sell,
-                Type = MapOrderType(TradeBot.Db.Models.OrderType.TakeProfit),
-                Quantity = quantity,
-                Price = takeProfitPrice,
-                CreateTime = DateTime.UtcNow,
-                Status = OrderStatus.New,
-                ClientOrderId = Guid.NewGuid().ToString()
-            };
-
-            // Save to database
-            var fakeOrder = new FakeOrder
-            {
-                OrderId = orderInfo.OrderId,
-                Symbol = orderInfo.Symbol,
-                Side = orderInfo.Side,
-                Type = MapToDbOrderType(orderInfo.Type),
-                Quantity = orderInfo.Quantity,
-                Price = orderInfo.Price,
-                CreateTime = orderInfo.CreateTime,
-                Status = orderInfo.Status,
-                ClientOrderId = orderInfo.ClientOrderId
-            };
-
-            _dbContext.FakeOrders.Add(fakeOrder);
-            await _dbContext.SaveChangesAsync();
-
-            _activeOrders[orderInfo.OrderId] = orderInfo;
-            _logger.LogInformation($"MOCK: Тейк-профит ордер размещен успешно: {orderInfo.OrderId}");
-
-            return orderInfo;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "MOCK: Исключение при размещении тейк-профит ордера");
             return null;
         }
     }
@@ -308,7 +211,8 @@ public class MockOrderManagementService : IOrderManagementService
         }
     }
 
-    public async Task<Position?> CreatePositionAsync(string symbol, OrderSide side, decimal quantity, decimal entryPrice)
+    public async Task<Position?> CreatePositionAsync(string symbol, OrderSide side, decimal quantity,
+        decimal entryPrice)
     {
         try
         {
@@ -322,18 +226,6 @@ public class MockOrderManagementService : IOrderManagementService
                 IsActive = true
             };
 
-            // Рассчитываем уровни стоп-лосс и тейк-профит
-            if (side == OrderSide.Buy)
-            {
-                position.StopLossPrice = entryPrice * (1 - _tradingConfig.StopLossPercent / 100);
-                position.TakeProfitPrice = entryPrice * (1 + _tradingConfig.TakeProfitPercent / 100);
-            }
-            else
-            {
-                position.StopLossPrice = entryPrice * (1 + _tradingConfig.StopLossPercent / 100);
-                position.TakeProfitPrice = entryPrice * (1 - _tradingConfig.TakeProfitPercent / 100);
-            }
-
             // Save to database
             var fakePosition = new FakePosition
             {
@@ -342,10 +234,6 @@ public class MockOrderManagementService : IOrderManagementService
                 Quantity = position.Quantity,
                 EntryPrice = position.EntryPrice,
                 EntryTime = position.EntryTime,
-                TakeProfitPrice = position.TakeProfitPrice,
-                StopLossPrice = position.StopLossPrice,
-                TakeProfitOrderId = position.TakeProfitOrderId,
-                StopLossOrderId = position.StopLossOrderId,
                 IsActive = position.IsActive
             };
 
@@ -376,17 +264,6 @@ public class MockOrderManagementService : IOrderManagementService
 
             var position = _activePositions[symbol];
 
-            // Отменяем связанные ордера
-            if (position.TakeProfitOrderId.HasValue)
-            {
-                await CancelOrderAsync(symbol, position.TakeProfitOrderId.Value);
-            }
-
-            if (position.StopLossOrderId.HasValue)
-            {
-                await CancelOrderAsync(symbol, position.StopLossOrderId.Value);
-            }
-
             // Закрываем позицию рыночным ордером
             var closeSide = position.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
             var closeOrder = await PlaceMarketOrderAsync(symbol, closeSide, position.Quantity);
@@ -394,7 +271,8 @@ public class MockOrderManagementService : IOrderManagementService
             if (closeOrder != null)
             {
                 // Update position in database
-                var fakePosition = await _dbContext.FakePositions.FirstOrDefaultAsync(p => p.Symbol == symbol && p.IsActive);
+                var fakePosition =
+                    await _dbContext.FakePositions.FirstOrDefaultAsync(p => p.Symbol == symbol && p.IsActive);
                 if (fakePosition != null)
                 {
                     fakePosition.IsActive = false;
@@ -454,16 +332,17 @@ public class MockOrderManagementService : IOrderManagementService
 
             foreach (var position in activePositions)
             {
-                // Проверяем, не истекло ли время позиции (максимум 4 часа)
+                // Проверяем, не истекло ли время позиции
                 var positionAge = DateTime.UtcNow - position.EntryTime;
-                if (positionAge.TotalHours >= 4)
+                if (positionAge.TotalHours >= _tradingConfig.MaxPositionHoldHours)
                 {
-                    _logger.LogInformation($"MOCK: Позиция {position.Symbol} истекла по времени. Закрываем...");
+                    _logger.LogInformation($"MOCK: Позиция {position.Symbol} истекла по времени ({_tradingConfig.MaxPositionHoldHours} часов). Закрываем...");
                     await ClosePositionAsync(position.Symbol);
                     continue;
                 }
 
-                // Mock monitoring - you can add more logic here for testing
+                // В новой стратегии нет автоматических стоп-лоссов и тейк-профитов
+                // Позиции закрываются только при достижении минимальной прибыли
             }
         }
         catch (Exception ex)
@@ -499,27 +378,27 @@ public class MockOrderManagementService : IOrderManagementService
         }
     }
 
-    private TradeBot.Models.OrderType MapOrderType(TradeBot.Db.Models.OrderType dbOrderType)
+    private OrderType MapOrderType(Db.Models.OrderType dbOrderType)
     {
         return dbOrderType switch
         {
-            TradeBot.Db.Models.OrderType.Market => TradeBot.Models.OrderType.Market,
-            TradeBot.Db.Models.OrderType.Limit => TradeBot.Models.OrderType.Limit,
-            TradeBot.Db.Models.OrderType.StopLoss => TradeBot.Models.OrderType.StopLoss,
-            TradeBot.Db.Models.OrderType.TakeProfit => TradeBot.Models.OrderType.TakeProfit,
-            _ => TradeBot.Models.OrderType.Market
+            Db.Models.OrderType.Market => OrderType.Market,
+            Db.Models.OrderType.Limit => OrderType.Limit,
+            Db.Models.OrderType.StopLoss => OrderType.StopLoss,
+            Db.Models.OrderType.TakeProfit => OrderType.TakeProfit,
+            _ => OrderType.Market
         };
     }
 
-    private TradeBot.Db.Models.OrderType MapToDbOrderType(TradeBot.Models.OrderType orderType)
+    private Db.Models.OrderType MapToDbOrderType(OrderType orderType)
     {
         return orderType switch
         {
-            TradeBot.Models.OrderType.Market => TradeBot.Db.Models.OrderType.Market,
-            TradeBot.Models.OrderType.Limit => TradeBot.Db.Models.OrderType.Limit,
-            TradeBot.Models.OrderType.StopLoss => TradeBot.Db.Models.OrderType.StopLoss,
-            TradeBot.Models.OrderType.TakeProfit => TradeBot.Db.Models.OrderType.TakeProfit,
-            _ => TradeBot.Db.Models.OrderType.Market
+            OrderType.Market => Db.Models.OrderType.Market,
+            OrderType.Limit => Db.Models.OrderType.Limit,
+            OrderType.StopLoss => Db.Models.OrderType.StopLoss,
+            OrderType.TakeProfit => Db.Models.OrderType.TakeProfit,
+            _ => Db.Models.OrderType.Market
         };
     }
-} 
+}

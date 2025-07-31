@@ -7,8 +7,6 @@ public interface IOrderManagementService
 {
     Task<OrderInfo?> PlaceMarketOrderAsync(string symbol, OrderSide side, decimal quantity);
     Task<OrderInfo?> PlaceLimitOrderAsync(string symbol, OrderSide side, decimal quantity, decimal price);
-    Task<OrderInfo?> PlaceStopLossOrderAsync(string symbol, decimal quantity, decimal stopPrice);
-    Task<OrderInfo?> PlaceTakeProfitOrderAsync(string symbol, decimal quantity, decimal takeProfitPrice);
     Task<bool> CancelOrderAsync(string symbol, long orderId);
     Task<OrderInfo?> GetOrderAsync(string symbol, long orderId);
     Task<List<OrderInfo>> GetOpenOrdersAsync(string symbol);

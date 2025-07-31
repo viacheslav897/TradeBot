@@ -47,6 +47,13 @@ builder.Services.AddLogging(config =>
 
 var host = builder.Build();
 
+// Apply database migrations
+using (var scope = host.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<TradeBotDbContext>();
+    await context.Database.MigrateAsync();
+}
+
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("Запуск торгового бота для работы в боковых трендах");
 

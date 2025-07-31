@@ -1,0 +1,15 @@
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\TradeBot.Db.csproj.AssemblyReference.cache
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\TradeBot.Db.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\TradeBot.Db.AssemblyInfoInputs.cache
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\TradeBot.Db.AssemblyInfo.cs
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\TradeBot.Db.csproj.CoreCompileInputs.cache
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\TradeBot.Db.sourcelink.json
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\bin\Debug\net9.0\TradeBot.Db.deps.json
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\bin\Debug\net9.0\TradeBot.Db.dll
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\bin\Debug\net9.0\TradeBot.Db.pdb
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\TradeBot.Db.dll
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\refint\TradeBot.Db.dll
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\TradeBot.Db.pdb
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\ref\TradeBot.Db.dll
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\bin\Debug\net9.0\TradeBot.Db.runtimeconfig.json
+D:\Projects\TradeBot\TradeBot\TradeBot.Db\obj\Debug\net9.0\TradeBot.Db.genruntimeconfig.cache

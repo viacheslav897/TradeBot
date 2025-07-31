@@ -432,3 +432,7 @@ tmp/
 # Configuration files with sensitive data
 config/secrets.json
 config/api-keys.json 
+
+# DB
+!TradeBot/TradeBot.Db/
+!TradeBot/TradeBot.Db/**/*

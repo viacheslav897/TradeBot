@@ -41,6 +41,7 @@ public abstract class BaseOrderManagementService : IOrderManagementService
                 Side = side,
                 Quantity = quantity,
                 EntryPrice = entryPrice,
+                CurrentPrice = entryPrice, // Initially set to entry price
                 EntryTime = DateTime.UtcNow,
                 IsActive = true
             };
@@ -114,6 +115,9 @@ public abstract class BaseOrderManagementService : IOrderManagementService
 
             foreach (var position in activePositions)
             {
+                // Update current price for the position
+                await UpdatePositionCurrentPriceAsync(position);
+                
                 var positionAge = DateTime.UtcNow - position.EntryTime;
                 if (positionAge.TotalHours >= _tradingConfig.MaxPositionHoldHours)
                 {
@@ -126,6 +130,20 @@ public abstract class BaseOrderManagementService : IOrderManagementService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Exception while monitoring positions");
+        }
+    }
+
+    protected virtual async Task UpdatePositionCurrentPriceAsync(Position position)
+    {
+        try
+        {
+            // This is a base implementation - derived classes should override this
+            // to get the actual current price from the exchange
+            _logger.LogDebug("Updating current price for position {Symbol}", position.Symbol);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating current price for position {Symbol}", position.Symbol);
         }
     }
 

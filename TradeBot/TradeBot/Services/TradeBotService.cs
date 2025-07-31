@@ -11,11 +11,16 @@ namespace TradeBot.Services;
 public class TradeBotService : BackgroundService
 {
     private readonly ITelegramBotClient _botClient;
+    private readonly TradeBotCommandHandler _commandHandler;
     private readonly ILogger<TradeBotService> _logger;
 
-    public TradeBotService(ITelegramBotClient botClient, ILogger<TradeBotService> logger)
+    public TradeBotService(
+        ITelegramBotClient botClient, 
+        TradeBotCommandHandler commandHandler,
+        ILogger<TradeBotService> logger)
     {
         _botClient = botClient;
+        _commandHandler = commandHandler;
         _logger = logger;
     }
 
@@ -68,47 +73,13 @@ public class TradeBotService : BackgroundService
     private async Task HandleMessageAsync(ITelegramBotClient botClient, Message message,
         CancellationToken cancellationToken)
     {
-        if (message.Text is not { } messageText)
-            return;
-
-        var chatId = message.Chat.Id;
-        var userName = message.From?.Username ?? message.From?.FirstName ?? "Unknown";
-
-        _logger.LogInformation("Received message from @{Username} (ID: {UserId}): {Message}",
-            userName, message.From?.Id, messageText);
-
-        // Handle different commands
-        var response = messageText.ToLower() switch
-        {
-            "/start" => "🤖 Welcome to TradeBot! I'm here to help you with trading information.\n",
-            _ => "❓ I don't understand that command. Type /help to see available commands."
-        };
-
-        // Send the response
-        await botClient.SendTextMessageAsync(
-            chatId: chatId,
-            text: response,
-            parseMode: ParseMode.Html,
-            cancellationToken: cancellationToken);
+        await _commandHandler.HandleMessageAsync(message, cancellationToken);
     }
 
     private async Task HandleCallbackQueryAsync(ITelegramBotClient botClient, CallbackQuery callbackQuery,
         CancellationToken cancellationToken)
     {
-        if (callbackQuery.Data is null)
-            return;
-
-        var response = callbackQuery.Data switch
-        {
-            "portfolio" => "Portfolio details loaded...",
-            "market" => "Market data updated...",
-            _ => "Unknown action"
-        };
-
-        await botClient.AnswerCallbackQueryAsync(
-            callbackQueryId: callbackQuery.Id,
-            text: response,
-            cancellationToken: cancellationToken);
+        await _commandHandler.HandleCallbackQueryAsync(callbackQuery, cancellationToken);
     }
 
     private Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception,

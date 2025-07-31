@@ -8,6 +8,7 @@ public class Position
     public OrderSide Side { get; set; }
     public decimal Quantity { get; set; }
     public decimal EntryPrice { get; set; }
+    public decimal CurrentPrice { get; set; }
     public DateTime EntryTime { get; set; }
     public bool IsActive { get; set; } = true;
 }

@@ -294,4 +294,21 @@ public class OrderManagementService : BaseOrderManagementService
             return 0m;
         }
     }
+
+    protected override async Task UpdatePositionCurrentPriceAsync(Position position)
+    {
+        try
+        {
+            var tickerResult = await _restClient.SpotApi.ExchangeData.GetTickerAsync(position.Symbol);
+            if (tickerResult.Success)
+            {
+                position.CurrentPrice = tickerResult.Data.LastPrice;
+                _logger.LogDebug("Updated current price for {Symbol}: {Price}", position.Symbol, position.CurrentPrice);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating current price for position {Symbol}", position.Symbol);
+        }
+    }
 }

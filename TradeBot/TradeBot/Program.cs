@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using TradeBot.Db;
 using TradeBot.Models;
@@ -17,10 +18,12 @@ using TradeBot.Trader;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+// Enable user secrets for development
+builder.Configuration.AddUserSecrets<Program>();
+
 // Конфигурация
 var binanceConfig = builder.Configuration.GetSection("Binance").Get<BinanceConfig>() ?? new BinanceConfig();
 var tradingConfig = builder.Configuration.GetSection("Trading").Get<TradingConfig>() ?? new TradingConfig();
-var telegramConfig = builder.Configuration.GetSection("TelegramBot").Get<TelegramConfig>() ?? new TelegramConfig();
 
 // Database configuration
 builder.Services.AddDbContext<TradeBotDbContext>(options =>
@@ -29,12 +32,17 @@ builder.Services.AddDbContext<TradeBotDbContext>(options =>
 // Регистрация сервисов
 builder.Services.AddSingleton(binanceConfig);
 builder.Services.AddSingleton(tradingConfig);
-builder.Services.AddSingleton(telegramConfig);
+
+// Configure options
+builder.Services.Configure<TelegramConfig>(builder.Configuration.GetSection("TelegramBot"));
 builder.Services.AddSingleton<SidewaysDetectionService>();
 
 // Telegram notification services
 builder.Services.AddSingleton<ITelegramBotClient>(provider => 
-    new TelegramBotClient(telegramConfig.Token));
+{
+    var config = provider.GetRequiredService<IOptions<TelegramConfig>>().Value;
+    return new TelegramBotClient(config.Token);
+});
 builder.Services.AddSingleton<ITelegramNotificationService, TelegramNotificationService>();
 builder.Services.AddSingleton<INotificationPublisher, NotificationPublisher>();
 builder.Services.AddSingleton<NotificationFormatter>();
@@ -105,6 +113,7 @@ else
 }
 
 builder.Services.AddHostedService<TradingBotHostedService>();
+builder.Services.AddHostedService<TradeBotService>();
 
 // Настройка логирования
 builder.Services.AddLogging(config =>

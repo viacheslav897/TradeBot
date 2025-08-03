@@ -71,11 +71,16 @@ public class NotificationDecoratedBinanceTradingService : IBinanceTradingService
         {
             await _inner.AnalyzeMarketAsync();
             
+            // Get current price for notification
+            var klines = await _inner.GetKlinesAsync("BTCUSDT", Binance.Net.Enums.KlineInterval.FifteenMinutes, 1);
+            var currentPrice = klines?.LastOrDefault()?.ClosePrice;
+            
             // Publish market analysis event
             await _notificationPublisher.PublishTradingEventAsync(new TradingEvent
             {
                 Type = NotificationType.MarketAnalysis,
                 Symbol = "BTCUSDT", // This should come from config
+                Price = currentPrice,
                 Timestamp = DateTime.UtcNow
             });
         }

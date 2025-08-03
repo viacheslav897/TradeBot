@@ -14,6 +14,7 @@ using TradeBot.Services.Core;
 using TradeBot.Services.Notifications;
 using TradeBot.Services.OrderManagement;
 using TradeBot.Services.Trading;
+using TradeBot.Services.NewsAnalysis;
 using TradeBot.Trader;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -24,6 +25,7 @@ builder.Configuration.AddUserSecrets<Program>();
 // Конфигурация
 var binanceConfig = builder.Configuration.GetSection("Binance").Get<BinanceConfig>() ?? new BinanceConfig();
 var tradingConfig = builder.Configuration.GetSection("Trading").Get<TradingConfig>() ?? new TradingConfig();
+var newsAnalysisConfig = builder.Configuration.GetSection("NewsAnalysis").Get<NewsAnalysisConfig>() ?? new NewsAnalysisConfig();
 
 // Database configuration
 builder.Services.AddDbContext<TradeBotDbContext>(options =>
@@ -32,6 +34,7 @@ builder.Services.AddDbContext<TradeBotDbContext>(options =>
 // Регистрация сервисов
 builder.Services.AddSingleton(binanceConfig);
 builder.Services.AddSingleton(tradingConfig);
+builder.Services.AddSingleton(newsAnalysisConfig);
 
 // Configure options
 builder.Services.Configure<TelegramConfig>(builder.Configuration.GetSection("TelegramBot"));
@@ -114,6 +117,19 @@ else
 
 builder.Services.AddHostedService<TradingBotHostedService>();
 builder.Services.AddHostedService<TradeBotService>();
+
+// News Analysis Services
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<INewsFetcherService, NewsFetcherService>();
+builder.Services.AddSingleton<ISentimentAnalysisService, SentimentAnalysisService>();
+builder.Services.AddSingleton<ISignalGenerationService, SignalGenerationService>();
+builder.Services.AddSingleton<INewsAnalysisService, NewsAnalysisService>();
+
+// Register News Analysis Hosted Service if enabled
+if (newsAnalysisConfig.IsEnabled)
+{
+    builder.Services.AddHostedService<NewsAnalysisHostedService>();
+}
 
 // Настройка логирования
 builder.Services.AddLogging(config =>

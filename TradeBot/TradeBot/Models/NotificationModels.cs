@@ -7,6 +7,7 @@ public enum NotificationType
     OrderPlaced, OrderFilled, OrderCancelled, OrderFailed,
     PositionOpened, PositionClosed, StopLossTriggered, TakeProfitHit,
     MarketAnalysis, SidewaysDetected, TrendChange,
+    NewsAnalysis, SignalGenerated, SentimentAnalysis,
     SystemStart, SystemStop, ConnectionLost, Error
 }
 
